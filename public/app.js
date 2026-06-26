@@ -5,6 +5,7 @@ const form = $('#configForm');
 let latestStatus = null;
 let currentFilePath = '';
 let currentParentPath = '';
+let editingPath = '';
 
 async function api(path, options = {}) {
   const headers = options.body instanceof FormData ? {} : { 'content-type': 'application/json' };
@@ -25,6 +26,10 @@ function showMessage(value) {
 
 function showLoginMessage(value) {
   $('#loginMessage').textContent = value;
+}
+
+function showPasswordSource(source) {
+  $('#passwordSource').textContent = source ? `現在のパスワード指定: ${source}` : '';
 }
 
 function showApp(isAuthenticated) {
@@ -74,38 +79,98 @@ function humanSize(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+function renderBreadcrumbs() {
+  const breadcrumbs = $('#breadcrumbs');
+  breadcrumbs.innerHTML = '';
+  const root = document.createElement('button');
+  root.type = 'button';
+  root.textContent = 'server root';
+  root.addEventListener('click', () => refreshFiles('').catch((error) => showMessage(`エラー: ${error.message}`)));
+  breadcrumbs.append(root);
+  let acc = '';
+  for (const part of currentFilePath.split('/').filter(Boolean)) {
+    acc = acc ? `${acc}/${part}` : part;
+    const sep = document.createElement('span');
+    sep.textContent = '/';
+    const crumb = document.createElement('button');
+    crumb.type = 'button';
+    crumb.textContent = part;
+    const target = acc;
+    crumb.addEventListener('click', () => refreshFiles(target).catch((error) => showMessage(`エラー: ${error.message}`)));
+    breadcrumbs.append(sep, crumb);
+  }
+}
+
+function rowButton(label, className = '') {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = label;
+  button.className = className || 'small-btn';
+  return button;
+}
+
+function fileActionPath(name) {
+  return currentFilePath ? `${currentFilePath}/${name}` : name;
+}
+
+async function openEditor(filePath) {
+  const { path, content } = await api(`/api/file-text?path=${encodeURIComponent(filePath)}`);
+  editingPath = path;
+  $('#editorTitle').textContent = `編集中: /${path}`;
+  $('#fileEditor').value = content;
+  $('#editorPanel').hidden = false;
+  $('#fileEditor').focus();
+}
+
 async function refreshFiles(targetPath = '') {
   const data = await api(`/api/files?path=${encodeURIComponent(targetPath)}`);
   currentFilePath = data.path || '';
   currentParentPath = data.parent || '';
-  $('#filePath').textContent = `/${currentFilePath}`;
   $('#fileUpBtn').disabled = !currentFilePath;
+  renderBreadcrumbs();
   $('#fileList').innerHTML = '';
+  const header = document.createElement('div');
+  header.className = 'file-row file-header';
+  header.innerHTML = '<strong>名前</strong><strong>サイズ</strong><strong>更新日</strong><strong>操作</strong>';
+  $('#fileList').append(header);
   for (const entry of data.entries) {
     const row = document.createElement('div');
     row.className = 'file-row';
-    const name = document.createElement('button');
-    name.type = 'button';
-    name.className = entry.type === 'directory' ? 'link directory' : 'link';
-    name.textContent = `${entry.type === 'directory' ? '📁' : '📄'} ${entry.name}`;
+    const name = rowButton(`${entry.type === 'directory' ? '📁' : '📄'} ${entry.name}`, entry.type === 'directory' ? 'link directory' : 'link');
     name.addEventListener('click', () => {
       if (entry.type === 'directory') refreshFiles(entry.path).catch((error) => showMessage(`エラー: ${error.message}`));
-      else window.open(`/api/file?path=${encodeURIComponent(entry.path)}`, '_blank');
+      else openEditor(entry.path).catch((error) => showMessage(`エラー: ${error.message}`));
     });
-    const meta = document.createElement('span');
-    meta.textContent = `${entry.type === 'file' ? humanSize(entry.size) : 'dir'} / ${new Date(entry.modifiedAt).toLocaleString()}`;
-    const del = document.createElement('button');
-    del.type = 'button';
-    del.className = 'danger small-btn';
-    del.textContent = '削除';
+    const size = document.createElement('span');
+    size.textContent = entry.type === 'file' ? humanSize(entry.size) : 'dir';
+    const modified = document.createElement('span');
+    modified.textContent = new Date(entry.modifiedAt).toLocaleString();
+    const actions = document.createElement('div');
+    actions.className = 'row-actions';
+    if (entry.type === 'file') {
+      const edit = rowButton('編集');
+      edit.addEventListener('click', () => openEditor(entry.path).catch((error) => showMessage(`エラー: ${error.message}`)));
+      const download = rowButton('DL');
+      download.addEventListener('click', () => window.open(`/api/file?path=${encodeURIComponent(entry.path)}`, '_blank'));
+      actions.append(edit, download);
+    }
+    const rename = rowButton('名前変更');
+    rename.addEventListener('click', () => {
+      const nextName = prompt('新しい名前', entry.name);
+      if (!nextName || nextName === entry.name) return;
+      run(() => api('/api/rename', { method: 'POST', body: { from: entry.path, to: fileActionPath(nextName) } }));
+    });
+    const del = rowButton('削除', 'danger small-btn');
     del.addEventListener('click', () => {
       if (!confirm(`${entry.name} を削除しますか？`)) return;
       run(() => api(`/api/file?path=${encodeURIComponent(entry.path)}`, { method: 'DELETE' }));
     });
-    row.append(name, meta, del);
+    actions.append(rename, del);
+    row.append(name, size, modified, actions);
     $('#fileList').append(row);
   }
 }
+
 
 async function run(action) {
   try {
@@ -180,14 +245,41 @@ $('#fileUploadForm').addEventListener('submit', (event) => {
   run(() => uploadSelectedFile($('#fileInput'), currentFilePath));
 });
 $('#fileUpBtn').addEventListener('click', () => run(() => refreshFiles(currentParentPath)));
+$('#newFileBtn').addEventListener('click', () => {
+  const name = prompt('作成するファイル名', 'server.properties');
+  if (!name) return;
+  run(() => api('/api/file', { method: 'PUT', body: { path: fileActionPath(name), content: '' } }));
+});
 $('#newDirBtn').addEventListener('click', () => {
   const name = prompt('作成するフォルダ名');
   if (!name) return;
-  const target = currentFilePath ? `${currentFilePath}/${name}` : name;
-  run(() => api('/api/mkdir', { method: 'POST', body: { path: target } }));
+  run(() => api('/api/mkdir', { method: 'POST', body: { path: fileActionPath(name) } }));
+});
+$('#saveFileBtn').addEventListener('click', () => {
+  if (!editingPath) return;
+  run(() => api('/api/file', { method: 'PUT', body: { path: editingPath, content: $('#fileEditor').value } }));
+});
+$('#closeEditorBtn').addEventListener('click', () => {
+  $('#editorPanel').hidden = true;
+  editingPath = '';
+});
+$('#dropZone').addEventListener('dragover', (event) => {
+  event.preventDefault();
+  $('#dropZone').classList.add('dragging');
+});
+$('#dropZone').addEventListener('dragleave', () => $('#dropZone').classList.remove('dragging'));
+$('#dropZone').addEventListener('drop', (event) => {
+  event.preventDefault();
+  $('#dropZone').classList.remove('dragging');
+  const file = event.dataTransfer.files[0];
+  if (!file) return;
+  const body = new FormData();
+  body.append('file', file);
+  run(() => api(`/api/upload?path=${encodeURIComponent(currentFilePath)}`, { method: 'POST', body }));
 });
 
-api('/api/session').then(async ({ authenticated }) => {
+api('/api/session').then(async ({ authenticated, passwordSource }) => {
+  showPasswordSource(passwordSource);
   showApp(authenticated);
   if (authenticated) await refreshStatus();
 }).catch(() => showApp(false));

@@ -13,6 +13,7 @@ const DATA_DIR = path.join(ROOT, 'data');
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const CONFIG_PATH = path.join(DATA_DIR, 'config.json');
 const STATE_PATH = path.join(DATA_DIR, 'state.json');
+const dotenvKeys = new Set();
 function loadDotEnv() {
   const envPath = path.join(ROOT, '.env');
   if (!fs.existsSync(envPath)) return;
@@ -20,8 +21,13 @@ function loadDotEnv() {
   for (const rawLine of lines) {
     const line = rawLine.trim();
     if (!line || line.startsWith('#') || !line.includes('=')) continue;
-    const [key, ...rest] = line.split('=');
-    if (!process.env[key]) process.env[key] = rest.join('=').trim().replace(/^['\"]|['\"]$/g, '');
+    const [rawKey, ...rest] = line.split('=');
+    const key = rawKey.trim();
+    if (!key) continue;
+    if (!process.env[key]) {
+      process.env[key] = rest.join('=').trim().replace(/^['\"]|['\"]$/g, '');
+      dotenvKeys.add(key);
+    }
   }
 }
 
@@ -145,6 +151,12 @@ function isAuthed(req) {
   }
   sessions.set(token, Date.now() + 1000 * 60 * 60 * 12);
   return true;
+}
+
+function passwordSource(config) {
+  if (process.env.MCKANRI_PASSWORD) return dotenvKeys.has('MCKANRI_PASSWORD') ? '.env' : 'MCKANRI_PASSWORD';
+  if (config.adminPassword && config.adminPassword !== 'mckanri') return 'Web設定(data/config.json)';
+  return '初期値(mckanri)';
 }
 
 function timingSafeEqualString(a, b) {
@@ -305,7 +317,7 @@ async function listFiles(relativePath = '') {
     };
   }));
   entries.sort((a, b) => (a.type === b.type ? a.name.localeCompare(b.name) : a.type === 'directory' ? -1 : 1));
-  return { path: relative, parent: relative ? path.dirname(relative) : '', entries };
+  return { path: relative, parent: relative && path.dirname(relative) !== '.' ? path.dirname(relative) : '', entries };
 }
 
 async function deleteFile(relativePath) {
@@ -320,6 +332,31 @@ async function makeDirectory(relativePath) {
   if (!relative) throw Object.assign(new Error('Directory name is required'), { status: 400 });
   await fsp.mkdir(target, { recursive: true });
   return { created: relative };
+}
+
+async function readTextFile(relativePath) {
+  const { target, relative } = await resolveServerPath(relativePath);
+  const stat = await fsp.stat(target).catch(() => null);
+  if (!stat || !stat.isFile()) throw Object.assign(new Error('File not found'), { status: 404 });
+  if (stat.size > 1024 * 1024) throw Object.assign(new Error('Text editor supports files up to 1 MB'), { status: 413 });
+  return { path: relative, content: await fsp.readFile(target, 'utf8') };
+}
+
+async function writeTextFile(relativePath, content = '') {
+  const { target, relative } = await resolveServerPath(relativePath);
+  if (!relative) throw Object.assign(new Error('File path is required'), { status: 400 });
+  await fsp.mkdir(path.dirname(target), { recursive: true });
+  await fsp.writeFile(target, String(content), 'utf8');
+  return { saved: relative };
+}
+
+async function renamePath(fromPath, toPath) {
+  const from = await resolveServerPath(fromPath);
+  const to = await resolveServerPath(toPath);
+  if (!from.relative || !to.relative) throw Object.assign(new Error('Source and destination are required'), { status: 400 });
+  await fsp.mkdir(path.dirname(to.target), { recursive: true });
+  await fsp.rename(from.target, to.target);
+  return { renamed: from.relative, to: to.relative };
 }
 
 function parseMultipart(buffer, contentType) {
@@ -398,7 +435,7 @@ async function handleLogin(req, res) {
   const config = await loadConfig();
   const body = await readJson(req);
   if (!timingSafeEqualString(body.password || '', config.adminPassword)) {
-    return json(res, 401, { error: 'Password is incorrect' });
+    return json(res, 401, { error: `Password is incorrect. Current password source: ${passwordSource(config)}` });
   }
   const token = makeSession();
   res.writeHead(200, {
@@ -416,7 +453,10 @@ async function handleApi(req, res, pathname) {
     res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'set-cookie': 'mckanri_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0' });
     return res.end(JSON.stringify({ ok: true }));
   }
-  if (req.method === 'GET' && pathname === '/api/session') return json(res, 200, { authenticated: isAuthed(req) });
+  if (req.method === 'GET' && pathname === '/api/session') {
+    const config = await loadConfig();
+    return json(res, 200, { authenticated: isAuthed(req), passwordSource: passwordSource(config) });
+  }
   if (!isAuthed(req)) return json(res, 401, { error: 'Login required' });
 
   if (req.method === 'GET' && pathname === '/api/status') return json(res, 200, await getStatus());
@@ -428,6 +468,10 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'GET' && pathname === '/api/files') {
     const url = new URL(req.url, `http://${req.headers.host}`);
     return json(res, 200, await listFiles(url.searchParams.get('path') || ''));
+  }
+  if (req.method === 'GET' && pathname === '/api/file-text') {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    return json(res, 200, await readTextFile(url.searchParams.get('path') || ''));
   }
   if (req.method === 'GET' && pathname === '/api/file') {
     const url = new URL(req.url, `http://${req.headers.host}`);
@@ -457,6 +501,14 @@ async function handleApi(req, res, pathname) {
     return json(res, 200, await uploadFile(req, url.searchParams.get('path') || ''));
   }
   if (req.method === 'POST' && pathname === '/api/mkdir') return json(res, 200, await makeDirectory((await readJson(req)).path));
+  if (req.method === 'PUT' && pathname === '/api/file') {
+    const body = await readJson(req);
+    return json(res, 200, await writeTextFile(body.path, body.content));
+  }
+  if (req.method === 'POST' && pathname === '/api/rename') {
+    const body = await readJson(req);
+    return json(res, 200, await renamePath(body.from, body.to));
+  }
   if (req.method === 'DELETE' && pathname === '/api/file') {
     const url = new URL(req.url, `http://${req.headers.host}`);
     return json(res, 200, await deleteFile(url.searchParams.get('path') || ''));

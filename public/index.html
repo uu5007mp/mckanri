@@ -11,6 +11,7 @@
     <form id="loginForm" class="card login-card">
       <h1>mckanri</h1>
       <p>管理パスワードだけでログインします（ユーザー名は不要）。初期値は .env / MCKANRI_PASSWORD、未設定なら mckanri です。</p>
+      <p id="passwordSource" class="muted"></p>
       <label>管理パスワード<input id="passwordInput" type="password" autocomplete="current-password" required></label>
       <button type="submit" class="primary">ログイン</button>
       <pre id="loginMessage" class="message small"></pre>
@@ -76,20 +77,38 @@
         </section>
       </section>
 
-      <section class="card">
+      <section class="card file-manager-card">
         <div class="log-header">
-          <h2>ファイル管理</h2>
+          <div>
+            <h2>ファイル管理</h2>
+            <p class="muted">Pterodactyl風に、一覧から編集・リネーム・削除・ダウンロードできます。</p>
+          </div>
           <div class="actions compact">
             <button id="fileUpBtn">上へ</button>
+            <button id="newFileBtn">ファイル作成</button>
             <button id="newDirBtn">フォルダ作成</button>
           </div>
         </div>
-        <p id="filePath" class="muted"></p>
-        <form id="fileUploadForm" class="upload-row">
-          <input id="fileInput" type="file" required>
-          <button type="submit">現在のフォルダへアップロード</button>
-        </form>
-        <div id="fileList" class="file-list"></div>
+        <nav id="breadcrumbs" class="breadcrumbs"></nav>
+        <div id="dropZone" class="drop-zone">
+          <strong>ここにファイルをドラッグ&ドロップ</strong>
+          <span>または</span>
+          <form id="fileUploadForm" class="upload-row">
+            <input id="fileInput" type="file" required>
+            <button type="submit">選択して追加</button>
+          </form>
+        </div>
+        <div id="fileList" class="file-list table-like"></div>
+        <section id="editorPanel" class="editor-panel" hidden>
+          <div class="log-header">
+            <h3 id="editorTitle">ファイル編集</h3>
+            <div class="actions compact">
+              <button id="saveFileBtn" class="primary">保存</button>
+              <button id="closeEditorBtn">閉じる</button>
+            </div>
+          </div>
+          <textarea id="fileEditor" spellcheck="false"></textarea>
+        </section>
       </section>
 
       <section class="card">

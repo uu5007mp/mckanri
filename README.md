@@ -1,6 +1,6 @@
 # mckanri
 
-Ubuntu/Linux 上の Node.js で動かす、簡易的な Minecraft Java Edition サーバー管理 Web ツールです。ブラウザからサーバーの起動・停止、コンソールコマンド送信、ログ確認、バックアップ、設定変更、server.jar アップロード、ファイル管理ができます。
+Ubuntu/Linux 上の Node.js で動かす、簡易的な Minecraft Java Edition サーバー管理 Web ツールです。ブラウザからサーバーの起動・停止、コンソールコマンド送信、ログ確認、バックアップ、設定変更ができます。
 
 ## 必要なもの
 

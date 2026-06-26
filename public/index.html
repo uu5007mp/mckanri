@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mckanri - Minecraft鯖管理</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1>mckanri</h1>
+    <p>Ubuntu / Node.js で動く簡易 Minecraft Java Edition 鯖管理Webツール</p>
+  </header>
+
+  <main>
+    <section class="card status-card">
+      <div>
+        <h2>サーバー状態</h2>
+        <p id="statusText">読み込み中...</p>
+      </div>
+      <div class="actions">
+        <button id="refreshBtn">更新</button>
+        <button id="startBtn" class="primary">起動</button>
+        <button id="stopBtn" class="danger">停止</button>
+      </div>
+    </section>
+
+    <section class="grid">
+      <form id="configForm" class="card">
+        <h2>設定</h2>
+        <label>サーバーディレクトリ<input name="serverDir" required></label>
+        <label>server.jar パス<input name="jarPath" required></label>
+        <label>Javaコマンド<input name="javaPath" required></label>
+        <div class="two">
+          <label>最小メモリ<input name="minMemory" required></label>
+          <label>最大メモリ<input name="maxMemory" required></label>
+        </div>
+        <label>バックアップ先<input name="backupDir" required></label>
+        <label>追加引数<input name="extraArgs" placeholder="例: --bonusChest"></label>
+        <button type="submit">設定を保存</button>
+        <button type="button" id="initBtn">初期化 / EULA同意済みで作成</button>
+      </form>
+
+      <section class="card">
+        <h2>コンソール</h2>
+        <form id="commandForm" class="command-row">
+          <input id="commandInput" placeholder="say hello / whitelist add player など">
+          <button type="submit">送信</button>
+        </form>
+        <div class="actions compact">
+          <button id="backupBtn">バックアップ</button>
+          <button id="systemdBtn">systemd表示</button>
+        </div>
+        <pre id="messageBox" class="message"></pre>
+      </section>
+    </section>
+
+    <section class="card">
+      <div class="log-header">
+        <h2>ログ</h2>
+        <button id="reloadLogsBtn">ログ更新</button>
+      </div>
+      <pre id="logs" class="logs"></pre>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

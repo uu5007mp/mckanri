@@ -1,0 +1,74 @@
+:root {
+  color-scheme: dark;
+  --bg: #10151f;
+  --panel: #182232;
+  --panel2: #202d40;
+  --text: #edf3ff;
+  --muted: #9ba8ba;
+  --accent: #5ee58a;
+  --danger: #ff6b6b;
+  --border: #31435f;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: radial-gradient(circle at top, #1d2d44, var(--bg) 45%);
+  color: var(--text);
+}
+header, main { width: min(1100px, calc(100% - 32px)); margin: 0 auto; }
+header { padding: 36px 0 20px; }
+h1 { margin: 0; font-size: 42px; letter-spacing: .04em; }
+header p, .muted { color: var(--muted); }
+.card {
+  background: linear-gradient(180deg, var(--panel), #141d2b);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .24);
+  margin-bottom: 18px;
+}
+.status-card, .log-header, .actions, .two, .command-row { display: flex; gap: 12px; }
+.status-card, .log-header { align-items: center; justify-content: space-between; }
+.grid { display: grid; grid-template-columns: 1.2fr .8fr; gap: 18px; }
+.two > * { flex: 1; }
+label { display: block; margin: 12px 0; color: var(--muted); }
+input {
+  width: 100%;
+  margin-top: 6px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel2);
+  color: var(--text);
+}
+button {
+  border: 0;
+  border-radius: 12px;
+  padding: 12px 16px;
+  color: #07100a;
+  background: #d6e1ef;
+  cursor: pointer;
+  font-weight: 700;
+}
+button.primary { background: var(--accent); }
+button.danger { background: var(--danger); color: #240606; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+.command-row input { flex: 1; }
+.compact { margin-top: 14px; flex-wrap: wrap; }
+.logs, .message {
+  min-height: 140px;
+  white-space: pre-wrap;
+  overflow: auto;
+  background: #080d14;
+  border: 1px solid #26354d;
+  border-radius: 14px;
+  padding: 16px;
+}
+.logs { max-height: 440px; }
+@media (max-width: 780px) {
+  .grid, .status-card, .two { grid-template-columns: 1fr; display: block; }
+  .actions { flex-wrap: wrap; }
+  button { width: 100%; margin-top: 8px; }
+}

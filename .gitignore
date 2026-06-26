@@ -1,0 +1,5 @@
+node_modules/
+data/*.json
+backups/
+minecraft-server/
+.env

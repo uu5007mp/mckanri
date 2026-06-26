@@ -13,6 +13,20 @@ const DATA_DIR = path.join(ROOT, 'data');
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const CONFIG_PATH = path.join(DATA_DIR, 'config.json');
 const STATE_PATH = path.join(DATA_DIR, 'state.json');
+function loadDotEnv() {
+  const envPath = path.join(ROOT, '.env');
+  if (!fs.existsSync(envPath)) return;
+  const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#') || !line.includes('=')) continue;
+    const [key, ...rest] = line.split('=');
+    if (!process.env[key]) process.env[key] = rest.join('=').trim().replace(/^['\"]|['\"]$/g, '');
+  }
+}
+
+loadDotEnv();
+
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '0.0.0.0';
 const MAX_JSON_BYTES = 1024 * 1024;
@@ -70,7 +84,9 @@ async function loadConfig() {
   await ensureDataFiles();
   const raw = await fsp.readFile(CONFIG_PATH, 'utf8');
   const parsed = JSON.parse(raw);
-  return { ...DEFAULT_CONFIG, ...parsed, extraArgs: Array.isArray(parsed.extraArgs) ? parsed.extraArgs : [] };
+  const config = { ...DEFAULT_CONFIG, ...parsed, extraArgs: Array.isArray(parsed.extraArgs) ? parsed.extraArgs : [] };
+  if (process.env.MCKANRI_PASSWORD) config.adminPassword = process.env.MCKANRI_PASSWORD;
+  return config;
 }
 
 async function saveConfig(config) {
@@ -363,7 +379,7 @@ async function uploadFile(req, relativeDir = '') {
 }
 
 function systemdUnit() {
-  return `[Unit]\nDescription=mckanri Minecraft web manager\nAfter=network.target\n\n[Service]\nType=simple\nWorkingDirectory=${ROOT}\nExecStart=/usr/bin/node ${path.join(ROOT, 'server.js')}\nRestart=on-failure\nEnvironment=HOST=0.0.0.0\nEnvironment=PORT=${PORT}\nEnvironment=MCKANRI_PASSWORD=change-me\n\n[Install]\nWantedBy=multi-user.target\n`;
+  return `[Unit]\nDescription=mckanri Minecraft web manager\nAfter=network.target\n\n[Service]\nType=simple\nWorkingDirectory=${ROOT}\nExecStart=/usr/bin/node ${path.join(ROOT, 'server.js')}\nRestart=on-failure\nEnvironment=HOST=0.0.0.0\nEnvironment=PORT=${PORT}\n# Put MCKANRI_PASSWORD=change-me in the .env file below.\nEnvironmentFile=-${path.join(ROOT, '.env')}\n\n[Install]\nWantedBy=multi-user.target\n`;
 }
 
 async function serveStatic(req, res, pathname) {

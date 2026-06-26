@@ -1,6 +1,6 @@
 # mckanri
 
-Ubuntu/Linux 上の Node.js で動かす、簡易的な Minecraft Java Edition サーバー管理 Web ツールです。ブラウザからサーバーの起動・停止、コンソールコマンド送信、ログ確認、バックアップ、設定変更ができます。
+Ubuntu/Linux 上の Node.js で動かす、簡易的な Minecraft Java Edition サーバー管理 Web ツールです。ブラウザからサーバーの起動・停止、コンソールコマンド送信、ログ確認、バックアップ、設定変更、server.jar アップロード、ファイル管理ができます。
 
 ## 必要なもの
 
@@ -21,7 +21,24 @@ npm start
 HOST=0.0.0.0 PORT=3000 MCKANRI_PASSWORD=change-me npm start
 ```
 
-初回の管理パスワードは `MCKANRI_PASSWORD` があればその値、なければ `mckanri` です。ログイン画面ではユーザー名は不要で、パスワードだけを入力します。
+または、プロジェクト直下に `.env` を作成して指定できます。
+
+```env
+HOST=0.0.0.0
+PORT=3000
+MCKANRI_PASSWORD=change-me
+```
+
+## パスワードの指定場所
+
+ログイン画面ではユーザー名は不要で、管理パスワードだけを入力します。管理パスワードは次の優先順で決まります。
+
+1. 起動時の環境変数 `MCKANRI_PASSWORD`
+2. プロジェクト直下の `.env` に書いた `MCKANRI_PASSWORD`
+3. Web 画面の「設定」→「管理パスワード変更」で保存した値
+4. どれも未設定の場合の初期値 `mckanri`
+
+本番運用では必ず `MCKANRI_PASSWORD` または `.env` で変更してください。環境変数 / `.env` の値は `data/config.json` より優先されます。
 
 ## 初期設定
 

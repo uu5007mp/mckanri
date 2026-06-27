@@ -62,7 +62,7 @@ MCKANRI_PASSWORD=change-me
    - メモリ設定
    - バックアップ先
 3. Mojang の EULA を読んで同意した上で「初期化 / EULA同意済みで作成」を押します。
-4. 「server.jar アップロード」で Minecraft server jar をアップロードします。`.jar` ファイルは自動で `server.jar` として保存され、設定の `jarPath` も更新されます。
+4. 「server.jar アップロード」で Minecraft server jar をアップロードします。`.jar` ファイルは元のファイル名で保存され、設定の `jarPath` も更新されます。
 5. 「起動」を押します。
 
 設定は `data/config.json` に保存されます。管理パスワードもここに保存されるため、サーバーのファイル権限を適切に設定してください。
@@ -74,7 +74,7 @@ MCKANRI_PASSWORD=change-me
 - Minecraft サーバー起動 / 停止
 - `say hello` や `whitelist add player` などのコンソールコマンド送信
 - `logs/latest.log` の確認
-- `.jar` アップロード時の自動 `server.jar` リネーム
+- `.jar` アップロード時は元のファイル名を維持（jar専用アップロード時は `jarPath` も更新）
 - Pterodactyl風のファイル管理（パンくず移動、ドラッグ&ドロップ追加、ファイル作成、テキスト編集、名前変更、ダウンロード、削除）
 - サーバーディレクトリの `.tar.gz` バックアップ作成
 - systemd ユニットひな形の表示

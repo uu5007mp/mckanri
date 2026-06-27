@@ -253,6 +253,12 @@ async function stopServer() {
   return getStatus();
 }
 
+async function restartServer() {
+  if (!isRunning()) throw Object.assign(new Error('Minecraft server is not running'), { status: 409 });
+  await stopServer();
+  return startServer();
+}
+
 function sendCommand(command) {
   if (!isRunning()) throw Object.assign(new Error('Minecraft server is not running'), { status: 409 });
   const line = String(command || '').trim();
@@ -397,22 +403,22 @@ function getMultipartFile(parts) {
   throw Object.assign(new Error('Upload file is required'), { status: 400 });
 }
 
-async function uploadFile(req, relativeDir = '') {
+async function uploadFile(req, relativeDir = '', options = {}) {
   const raw = await readRawBody(req, MAX_UPLOAD_BYTES);
   const { config, target: dir } = await resolveServerPath(relativeDir);
   await fsp.mkdir(dir, { recursive: true });
   const file = getMultipartFile(parseMultipart(raw, req.headers['content-type']));
   const isJar = path.extname(file.originalName).toLowerCase() === '.jar';
-  const fileName = isJar ? 'server.jar' : file.originalName;
+  const fileName = file.originalName;
   const destination = path.join(dir, fileName);
   const root = path.resolve(config.serverDir);
   if (!path.resolve(destination).startsWith(root + path.sep)) throw Object.assign(new Error('Invalid upload path'), { status: 400 });
   await fsp.writeFile(destination, file.data);
-  if (isJar) {
+  if (isJar && options.updateJarPath) {
     config.jarPath = destination;
     await saveConfig(config);
   }
-  return { uploaded: path.relative(root, destination), savedAs: fileName, jarPath: isJar ? destination : undefined };
+  return { uploaded: path.relative(root, destination), savedAs: fileName, jarPath: isJar && options.updateJarPath ? destination : undefined };
 }
 
 function systemdUnit() {
@@ -494,11 +500,14 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/init') return json(res, 200, await initServer(Boolean((await readJson(req)).acceptEula)));
   if (req.method === 'POST' && pathname === '/api/start') return json(res, 200, await startServer());
   if (req.method === 'POST' && pathname === '/api/stop') return json(res, 200, await stopServer());
+  if (req.method === 'POST' && pathname === '/api/restart') return json(res, 200, await restartServer());
   if (req.method === 'POST' && pathname === '/api/command') return json(res, 200, sendCommand((await readJson(req)).command));
   if (req.method === 'POST' && pathname === '/api/backup') return json(res, 200, await backupServer());
   if (req.method === 'POST' && pathname === '/api/upload') {
     const url = new URL(req.url, `http://${req.headers.host}`);
-    return json(res, 200, await uploadFile(req, url.searchParams.get('path') || ''));
+    return json(res, 200, await uploadFile(req, url.searchParams.get('path') || '', {
+      updateJarPath: ['1', 'true'].includes(String(url.searchParams.get('setJarPath') || '').toLowerCase())
+    }));
   }
   if (req.method === 'POST' && pathname === '/api/mkdir') return json(res, 200, await makeDirectory((await readJson(req)).path));
   if (req.method === 'PUT' && pathname === '/api/file') {

@@ -64,6 +64,7 @@ async function refreshStatus() {
   $('#statusText').textContent = latestStatus.running ? `起動中 PID: ${latestStatus.pid}` : '停止中';
   $('#startBtn').disabled = latestStatus.running;
   $('#stopBtn').disabled = !latestStatus.running;
+  $('#restartBtn').disabled = !latestStatus.running;
   fillConfig(latestStatus.config);
   await Promise.all([refreshLogs(), refreshFiles(currentFilePath)]);
 }
@@ -184,13 +185,15 @@ async function run(action) {
   }
 }
 
-async function uploadSelectedFile(fileInput, targetPath = '') {
+async function uploadSelectedFile(fileInput, targetPath = '', options = {}) {
   const file = fileInput.files[0];
   if (!file) throw new Error('ファイルを選択してください');
   const body = new FormData();
   body.append('file', file);
   fileInput.value = '';
-  return api(`/api/upload?path=${encodeURIComponent(targetPath)}`, { method: 'POST', body });
+  const query = new URLSearchParams({ path: targetPath });
+  if (options.setJarPath) query.set('setJarPath', '1');
+  return api(`/api/upload?${query.toString()}`, { method: 'POST', body });
 }
 
 $('#loginForm').addEventListener('submit', async (event) => {
@@ -223,6 +226,7 @@ $('#initBtn').addEventListener('click', () => {
 });
 $('#startBtn').addEventListener('click', () => run(() => api('/api/start', { method: 'POST' })));
 $('#stopBtn').addEventListener('click', () => run(() => api('/api/stop', { method: 'POST' })));
+$('#restartBtn').addEventListener('click', () => run(() => api('/api/restart', { method: 'POST' })));
 $('#refreshBtn').addEventListener('click', () => run(refreshStatus));
 $('#reloadLogsBtn').addEventListener('click', () => run(refreshLogs));
 $('#backupBtn').addEventListener('click', () => run(() => api('/api/backup', { method: 'POST' })));
@@ -238,7 +242,7 @@ $('#commandForm').addEventListener('submit', (event) => {
 });
 $('#jarUploadForm').addEventListener('submit', (event) => {
   event.preventDefault();
-  run(() => uploadSelectedFile($('#jarFileInput'), ''));
+  run(() => uploadSelectedFile($('#jarFileInput'), '', { setJarPath: true }));
 });
 $('#fileUploadForm').addEventListener('submit', (event) => {
   event.preventDefault();

@@ -64,7 +64,7 @@ async function refreshStatus() {
   $('#statusText').textContent = latestStatus.running ? `起動中 PID: ${latestStatus.pid}` : '停止中';
   $('#startBtn').disabled = latestStatus.running;
   $('#stopBtn').disabled = !latestStatus.running;
-  $('#restartBtn').disabled = !latestStatus.running;
+  $('#restartBtn').disabled = false;
   fillConfig(latestStatus.config);
   await Promise.all([refreshLogs(), refreshFiles(currentFilePath)]);
 }

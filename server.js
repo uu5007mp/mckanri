@@ -254,7 +254,6 @@ async function stopServer() {
 }
 
 async function restartServer() {
-  if (!isRunning()) throw Object.assign(new Error('Minecraft server is not running'), { status: 409 });
   await stopServer();
   return startServer();
 }
@@ -395,10 +394,27 @@ function parseMultipart(buffer, contentType) {
 function getMultipartFile(parts) {
   for (const part of parts) {
     const disposition = part.headers['content-disposition'] || '';
-    if (!disposition.includes('filename=')) continue;
-    const filenameMatch = /filename="([^"]*)"|filename=([^;]+)/i.exec(disposition);
-    const originalName = path.basename(filenameMatch?.[1] || filenameMatch?.[2] || 'upload.bin');
-    return { originalName, data: part.data };
+    if (!disposition.includes('filename=') && !disposition.includes('filename*=')) continue;
+    let originalName = '';
+    const encodedMatch = /filename\*=([^;]+)/i.exec(disposition);
+    if (encodedMatch?.[1]) {
+      const encoded = encodedMatch[1].trim().replace(/^"(.*)"$/, '$1');
+      const value = encoded.includes("''") ? encoded.slice(encoded.indexOf("''") + 2) : encoded;
+      try {
+        originalName = decodeURIComponent(value);
+      } catch {
+        originalName = value;
+      }
+    }
+    if (!originalName) {
+      const filenameMatch = /filename="([^"]*)"|filename=([^;]+)/i.exec(disposition);
+      originalName = filenameMatch?.[1] || filenameMatch?.[2] || '';
+    }
+    const normalizedName = originalName.replace(/^"(.*)"$/, '$1').replace(/\\/g, '/');
+    const safeName = path.posix.basename(normalizedName);
+    const finalName = safeName || 'upload.bin';
+    if (finalName === '.' || finalName === '..') throw Object.assign(new Error('Invalid upload filename'), { status: 400 });
+    return { originalName: finalName, data: part.data };
   }
   throw Object.assign(new Error('Upload file is required'), { status: 400 });
 }

@@ -244,16 +244,24 @@ function isChildRunning(child) {
 
 function waitForExit(child, timeoutMs) {
   return new Promise((resolve) => {
-    if (!isChildRunning(child)) return resolve(true);
-    const timer = setTimeout(() => {
-      child.removeListener('exit', onExit);
-      resolve(false);
-    }, timeoutMs);
-    function onExit() {
+    function cleanup() {
       clearTimeout(timer);
+      child.removeListener('exit', onExit);
+      child.removeListener('close', onExit);
+    }
+    function onExit() {
+      cleanup();
       resolve(true);
     }
+    const timer = setTimeout(() => {
+      cleanup();
+      resolve(!isChildRunning(child));
+    }, timeoutMs);
     child.once('exit', onExit);
+    child.once('close', onExit);
+    if (!isChildRunning(child)) {
+      onExit();
+    }
   });
 }
 

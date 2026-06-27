@@ -238,23 +238,46 @@ async function startServer() {
   return getStatus();
 }
 
-async function stopServer() {
-  if (!isRunning()) return getStatus();
-  minecraft.stdin.write('stop\n');
-  const child = minecraft;
-  const stopped = await new Promise((resolve) => {
-    const timer = setTimeout(() => resolve(false), 30000);
-    child.once('exit', () => {
+function isChildRunning(child) {
+  return child && child.exitCode === null && child.signalCode === null;
+}
+
+function waitForExit(child, timeoutMs) {
+  return new Promise((resolve) => {
+    if (!isChildRunning(child)) return resolve(true);
+    const timer = setTimeout(() => {
+      child.removeListener('exit', onExit);
+      resolve(false);
+    }, timeoutMs);
+    function onExit() {
       clearTimeout(timer);
       resolve(true);
-    });
+    }
+    child.once('exit', onExit);
   });
-  if (!stopped && isRunning()) child.kill('SIGTERM');
+}
+
+async function stopServer() {
+  if (!isRunning()) return getStatus();
+  const child = minecraft;
+  try {
+    child.stdin.write('stop\n');
+  } catch {}
+  let stopped = await waitForExit(child, 30000);
+  if (!stopped && isChildRunning(child)) {
+    child.kill('SIGTERM');
+    stopped = await waitForExit(child, 10000);
+  }
+  if (!stopped && isChildRunning(child)) {
+    child.kill('SIGKILL');
+    await waitForExit(child, 5000);
+  }
   return getStatus();
 }
 
 async function restartServer() {
   await stopServer();
+  if (isRunning()) throw Object.assign(new Error('Failed to stop Minecraft server before restart'), { status: 500 });
   return startServer();
 }
 

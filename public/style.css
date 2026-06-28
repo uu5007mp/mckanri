@@ -1,13 +1,13 @@
 :root {
   color-scheme: dark;
-  --bg: #10151f;
-  --panel: #182232;
-  --panel2: #202d40;
-  --text: #edf3ff;
-  --muted: #9ba8ba;
-  --accent: #5ee58a;
-  --danger: #ff6b6b;
-  --border: #31435f;
+  --bg: #0d0d0d;
+  --panel: #161616;
+  --panel2: #202020;
+  --text: #f4f4f4;
+  --muted: #a8a8a8;
+  --accent: #f4f4f4;
+  --danger: #d8d8d8;
+  --border: #3a3a3a;
 }
 
 * {
@@ -21,7 +21,7 @@ body {
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
-  background: radial-gradient(circle at top, #1d2d44, var(--bg) 45%);
+  background: linear-gradient(180deg, #151515, var(--bg) 45%);
   color: var(--text);
 }
 header,
@@ -50,7 +50,7 @@ header p,
   color: var(--muted);
 }
 code {
-  color: var(--accent);
+  color: var(--text);
 }
 [hidden] {
   display: none !important;
@@ -65,11 +65,11 @@ code {
   width: min(440px, 100%);
 }
 .card {
-  background: linear-gradient(180deg, var(--panel), #141d2b);
+  background: linear-gradient(180deg, var(--panel), #121212);
   border: 1px solid var(--border);
   border-radius: 18px;
   padding: 22px;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.24);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
   margin-bottom: 18px;
 }
 .status-card,
@@ -105,27 +105,28 @@ input {
   padding: 12px 14px;
   border-radius: 12px;
   border: 1px solid var(--border);
-  background: var(--panel2);
+  background: #111111;
   color: var(--text);
 }
 input[type="file"] {
   padding: 10px;
 }
 button {
-  border: 0;
+  border: 1px solid #f0f0f0;
   border-radius: 12px;
   padding: 12px 16px;
-  color: #07100a;
-  background: #d6e1ef;
+  color: #111;
+  background: #e8e8e8;
   cursor: pointer;
   font-weight: 700;
 }
 button.primary {
-  background: var(--accent);
+  background: #ffffff;
+  color: #111;
 }
 button.danger {
-  background: var(--danger);
-  color: #240606;
+  background: #cfcfcf;
+  color: #111;
 }
 button:disabled {
   opacity: 0.45;
@@ -197,8 +198,8 @@ button.is-loading::after {
   min-height: 140px;
   white-space: pre-wrap;
   overflow: auto;
-  background: #080d14;
-  border: 1px solid #26354d;
+  background: #050505;
+  border: 1px solid #303030;
   border-radius: 14px;
   padding: 16px;
 }
@@ -210,7 +211,7 @@ button.is-loading::after {
   display: block;
   width: fit-content;
   margin-top: 6px;
-  color: var(--accent);
+  color: var(--text);
   animation: blink 1s step-end infinite;
 }
 .message.small {

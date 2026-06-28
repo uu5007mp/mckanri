@@ -202,11 +202,22 @@ button.is-loading::after {
   border-radius: 14px;
   padding: 16px;
 }
+.logs {
+  max-height: 440px;
+}
+.logs::after {
+  content: "▍";
+  display: block;
+  width: fit-content;
+  margin-top: 6px;
+  color: var(--accent);
+  animation: blink 1s step-end infinite;
+}
 .message.small {
   min-height: 54px;
 }
-.logs {
-  max-height: 440px;
+.console-row {
+  margin-top: 14px;
 }
 .breadcrumbs {
   display: flex;
@@ -296,6 +307,11 @@ button.link.directory {
   }
   to {
     transform: rotate(360deg);
+  }
+}
+@keyframes blink {
+  50% {
+    opacity: 0;
   }
 }
 @media (max-width: 780px) {

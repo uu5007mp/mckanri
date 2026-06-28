@@ -60,27 +60,7 @@
           <button type="button" id="initBtn">初期化 / EULA同意済みで作成</button>
         </form>
 
-        <section class="card">
-          <h2>コンソール</h2>
-          <form id="commandForm" class="command-row">
-            <input id="commandInput" placeholder="say hello / whitelist add player など">
-            <button type="submit">送信</button>
-          </form>
-          <div class="actions compact">
-            <button id="backupBtn">バックアップ</button>
-            <button id="systemdBtn">systemd表示</button>
-          </div>
-          <h3>server.jar アップロード</h3>
-          <p class="muted">.jar ファイルは元のファイル名で保存され、設定の jarPath も更新されます。</p>
-          <form id="jarUploadForm" class="upload-row">
-            <input id="jarFileInput" type="file" accept=".jar" required>
-            <button type="submit">jarアップロード</button>
-          </form>
-          <pre id="messageBox" class="message"></pre>
-        </section>
-      </section>
-
-      <section class="card file-manager-card">
+        <section class="card file-manager-card">
         <div class="log-header">
           <div>
             <h2>ファイル管理</h2>
@@ -119,7 +99,22 @@
           <h2>ログ</h2>
           <button id="reloadLogsBtn">ログ更新</button>
         </div>
-        <pre id="logs" class="logs"></pre>
+        <pre id="logs" class="logs" aria-label="サーバーログ"></pre>
+        <form id="commandForm" class="command-row console-row">
+          <input id="commandInput" placeholder="say hello / whitelist add player など">
+          <button type="submit">送信</button>
+        </form>
+        <div class="actions compact">
+          <button id="backupBtn">バックアップ</button>
+          <button id="systemdBtn">systemd表示</button>
+        </div>
+        <h3>server.jar アップロード</h3>
+        <p class="muted">.jar ファイルは元のファイル名で保存され、設定の jarPath も更新されます。</p>
+        <form id="jarUploadForm" class="upload-row">
+          <input id="jarFileInput" type="file" accept=".jar" required>
+          <button type="submit">jarアップロード</button>
+        </form>
+        <pre id="messageBox" class="message"></pre>
       </section>
     </main>
   </div>

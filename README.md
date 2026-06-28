@@ -61,7 +61,6 @@ MCKANRI_PASSWORD=change-me
 
 本番運用では必ず `MCKANRI_PASSWORD` または `.env` で変更してください。環境変数 / `.env` の値は `data/config.json` より優先されます。
 
-
 ## `Password is incorrect` になる場合
 
 ログイン画面に表示される「現在のパスワード指定」を確認してください。

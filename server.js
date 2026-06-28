@@ -64,6 +64,8 @@ const CONTENT_TYPES = {
 let minecraft = null;
 let currentLogPath = null;
 const sessions = new Map();
+const PLAYER_PROFILE_TTL_MS = 1000 * 60 * 10;
+const playerProfileCache = new Map();
 
 function json(res, status, body) {
   const text = JSON.stringify(body);
@@ -167,6 +169,10 @@ function timingSafeEqualString(a, b) {
 
 function isRunning() {
   return minecraft !== null && minecraft.exitCode === null && minecraft.signalCode === null;
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function getStatus() {
@@ -295,6 +301,114 @@ function sendCommand(command) {
   if (!line) throw Object.assign(new Error('command is required'), { status: 400 });
   minecraft.stdin.write(`${line}\n`);
   return { sent: line };
+}
+
+function parsePlayersFromLine(line) {
+  const patterns = [
+    /There are (\d+) of a max(?:imum)? of (\d+) players online:\s*(.*)$/,
+    /There are (\d+)\/(\d+) players online:\s*(.*)$/
+  ];
+  for (const pattern of patterns) {
+    const match = line.match(pattern);
+    if (!match) continue;
+    const online = Number(match[1]);
+    const max = Number(match[2]);
+    const players = String(match[3] || '').split(',').map((name) => name.trim()).filter(Boolean);
+    return { online, max, players };
+  }
+  return null;
+}
+
+function normalizeUuid(uuidWithoutHyphen) {
+  if (!/^[0-9a-fA-F]{32}$/.test(String(uuidWithoutHyphen || ''))) return null;
+  const value = uuidWithoutHyphen.toLowerCase();
+  return `${value.slice(0, 8)}-${value.slice(8, 12)}-${value.slice(12, 16)}-${value.slice(16, 20)}-${value.slice(20)}`;
+}
+
+async function fetchJson(url, timeoutMs = 3000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) return null;
+    return response.json();
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchMojangProfile(name) {
+  const safeName = String(name || '').trim();
+  if (!safeName) return { name: '', uuid: null, skinUrl: null };
+  const cacheKey = safeName.toLowerCase();
+  const cached = playerProfileCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return { ...cached.value };
+
+  const base = { name: safeName, uuid: null, skinUrl: null };
+  const profile = await fetchJson(`https://api.mojang.com/users/profiles/minecraft/${encodeURIComponent(safeName)}`);
+  if (!profile || !profile.id) {
+    playerProfileCache.set(cacheKey, { value: base, expiresAt: Date.now() + PLAYER_PROFILE_TTL_MS });
+    return base;
+  }
+
+  const uuid = normalizeUuid(profile.id);
+  const result = { name: profile.name || safeName, uuid, skinUrl: null };
+  const sessionProfile = await fetchJson(`https://sessionserver.mojang.com/session/minecraft/profile/${profile.id}`);
+  const textureProperty = sessionProfile?.properties?.find((prop) => prop?.name === 'textures' && prop?.value);
+  if (textureProperty) {
+    try {
+      const textureJson = JSON.parse(Buffer.from(textureProperty.value, 'base64').toString('utf8'));
+      if (textureJson?.textures?.SKIN?.url) result.skinUrl = textureJson.textures.SKIN.url;
+    } catch {}
+  }
+  playerProfileCache.set(cacheKey, { value: result, expiresAt: Date.now() + PLAYER_PROFILE_TTL_MS });
+  return result;
+}
+
+async function readLogRange(logPath, start, end) {
+  if (end <= start) return '';
+  const size = end - start;
+  const handle = await fsp.open(logPath, 'r');
+  try {
+    const buffer = Buffer.alloc(size);
+    const { bytesRead } = await handle.read(buffer, 0, size, start);
+    return buffer.subarray(0, bytesRead).toString('utf8');
+  } finally {
+    await handle.close();
+  }
+}
+
+async function getOnlinePlayers() {
+  if (!isRunning()) return { online: 0, max: null, players: [] };
+  const status = await getStatus();
+  const logPath = status.logPath;
+  let cursor = 0;
+  if (fs.existsSync(logPath)) {
+    cursor = (await fsp.stat(logPath)).size;
+  }
+  sendCommand('list');
+  const deadline = Date.now() + 4000;
+  let pending = '';
+  while (Date.now() < deadline) {
+    await wait(200);
+    if (!fs.existsSync(logPath)) continue;
+    const stat = await fsp.stat(logPath);
+    if (stat.size <= cursor) continue;
+    pending += await readLogRange(logPath, cursor, stat.size);
+    cursor = stat.size;
+    const lines = pending.split(/\r?\n/);
+    pending = lines.pop() || '';
+    for (let index = lines.length - 1; index >= 0; index -= 1) {
+      const parsed = parsePlayersFromLine(lines[index]);
+      if (parsed) {
+        const players = await Promise.all(parsed.players.map((name) => fetchMojangProfile(name)));
+        return { ...parsed, players };
+      }
+    }
+  }
+  throw Object.assign(new Error('Failed to get online players'), { status: 504 });
 }
 
 async function readLogs(lines) {
@@ -513,6 +627,7 @@ async function handleApi(req, res, pathname) {
   if (!isAuthed(req)) return json(res, 401, { error: 'Login required' });
 
   if (req.method === 'GET' && pathname === '/api/status') return json(res, 200, await getStatus());
+  if (req.method === 'GET' && pathname === '/api/players') return json(res, 200, await getOnlinePlayers());
   if (req.method === 'GET' && pathname === '/api/logs') {
     const url = new URL(req.url, `http://${req.headers.host}`);
     return json(res, 200, { logs: await readLogs(Number(url.searchParams.get('lines') || 120)) });

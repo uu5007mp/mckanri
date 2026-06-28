@@ -66,12 +66,66 @@ async function refreshStatus() {
   $('#stopBtn').disabled = !latestStatus.running;
   $('#restartBtn').disabled = false;
   fillConfig(latestStatus.config);
-  await Promise.all([refreshLogs(), refreshFiles(currentFilePath)]);
+  await Promise.all([refreshLogs(), refreshFiles(currentFilePath), refreshPlayers()]);
 }
 
 async function refreshLogs() {
   const { logs } = await api('/api/logs?lines=160');
   $('#logs').textContent = logs || 'ログはまだありません。';
+}
+
+async function refreshPlayers() {
+  if (!latestStatus?.running) {
+    $('#playersText').textContent = '参加中プレイヤー: サーバー停止中';
+    $('#playersList').innerHTML = '';
+    return;
+  }
+  const data = await api('/api/players');
+  const players = Array.isArray(data.players) ? data.players : [];
+  const count = Number.isFinite(data.online) ? data.online : players.length;
+  const max = Number.isFinite(data.max) ? data.max : '?';
+  $('#playersText').textContent = `参加中プレイヤー (${count}/${max})`;
+  renderPlayers(players);
+}
+
+function renderPlayers(players) {
+  const root = $('#playersList');
+  root.innerHTML = '';
+  if (!players.length) {
+    const empty = document.createElement('p');
+    empty.className = 'muted';
+    empty.textContent = '現在参加中のプレイヤーはいません。';
+    root.append(empty);
+    return;
+  }
+  for (const player of players) {
+    const row = document.createElement('div');
+    row.className = 'player-row';
+
+    const face = document.createElement('div');
+    face.className = 'player-face';
+    if (player.skinUrl) {
+      const image = document.createElement('img');
+      image.src = player.skinUrl;
+      image.alt = `${player.name} のスキン`;
+      image.loading = 'lazy';
+      face.append(image);
+    } else {
+      face.textContent = '?';
+    }
+
+    const info = document.createElement('div');
+    info.className = 'player-meta';
+    const name = document.createElement('strong');
+    name.textContent = player.name || 'unknown';
+    const uuid = document.createElement('span');
+    uuid.className = 'muted';
+    uuid.textContent = player.uuid || 'UUID取得不可';
+    info.append(name, uuid);
+
+    row.append(face, info);
+    root.append(row);
+  }
 }
 
 function humanSize(bytes) {
@@ -289,5 +343,7 @@ api('/api/session').then(async ({ authenticated, passwordSource }) => {
 }).catch(() => showApp(false));
 
 setInterval(() => {
-  if (!$('#appView').hidden && latestStatus?.running) refreshLogs().catch(() => {});
+  if (!$('#appView').hidden && latestStatus?.running) {
+    Promise.all([refreshLogs(), refreshPlayers()]).catch(() => {});
+  }
 }, 5000);

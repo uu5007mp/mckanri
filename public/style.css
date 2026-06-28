@@ -64,6 +64,27 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .small-btn { padding: 8px 10px; }
 .command-row input, .upload-row input { flex: 1; }
 .compact { margin-top: 14px; flex-wrap: wrap; }
+.players-list { display: grid; gap: 8px; margin-top: 10px; }
+.player-row { display: flex; align-items: center; gap: 10px; }
+.player-face {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel2);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  font-weight: 700;
+}
+.player-face img {
+  width: 256px;
+  height: 256px;
+  image-rendering: pixelated;
+  transform: translate(-32px, -32px);
+}
+.player-meta { display: grid; gap: 3px; }
+.player-meta strong { line-height: 1; }
 .logs, .message {
   min-height: 140px;
   white-space: pre-wrap;

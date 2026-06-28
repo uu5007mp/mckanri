@@ -392,18 +392,6 @@ function parsePlayersFromLine(line) {
   return null;
 }
 
-function stripZeroPlayerListLines(raw) {
-  return String(raw || "")
-    .split(/\r?\n/)
-    .filter(
-      (line) =>
-        !/There are 0 of a max(?:imum)? of \d+ players online:\s*$/.test(
-          line,
-        ) && !/There are 0\/\d+ players online:\s*$/.test(line),
-    )
-    .join("\n");
-}
-
 function normalizeUuid(uuidWithoutHyphen) {
   if (!/^[0-9a-fA-F]{32}$/.test(String(uuidWithoutHyphen || ""))) return null;
   const value = uuidWithoutHyphen.toLowerCase();
@@ -519,7 +507,7 @@ async function readLogs(lines) {
   const status = await getStatus();
   if (!fs.existsSync(status.logPath)) return "";
   const raw = await fsp.readFile(status.logPath, "utf8");
-  return stripZeroPlayerListLines(raw.split(/\r?\n/).slice(-lines).join("\n"));
+  return raw.split(/\r?\n/).slice(-lines).join("\n");
 }
 
 function runTar(args, cwd) {

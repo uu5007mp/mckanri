@@ -99,11 +99,7 @@ async function refreshStatus() {
 
 async function refreshLogs() {
   const { logs } = await api("/api/logs?lines=160");
-  const root = $("#logs");
-  root.textContent = logs || "ログはまだありません。";
-  requestAnimationFrame(() => {
-    root.scrollTop = root.scrollHeight;
-  });
+  $("#logs").textContent = logs || "ログはまだありません。";
 }
 
 async function refreshPlayers() {

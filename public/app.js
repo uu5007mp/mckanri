@@ -66,12 +66,24 @@ async function refreshStatus() {
   $('#stopBtn').disabled = !latestStatus.running;
   $('#restartBtn').disabled = false;
   fillConfig(latestStatus.config);
-  await Promise.all([refreshLogs(), refreshFiles(currentFilePath)]);
+  await Promise.all([refreshLogs(), refreshFiles(currentFilePath), refreshPlayers()]);
 }
 
 async function refreshLogs() {
   const { logs } = await api('/api/logs?lines=160');
   $('#logs').textContent = logs || 'ログはまだありません。';
+}
+
+async function refreshPlayers() {
+  if (!latestStatus?.running) {
+    $('#playersText').textContent = '参加中プレイヤー: サーバー停止中';
+    return;
+  }
+  const data = await api('/api/players');
+  const count = Number.isFinite(data.online) ? data.online : data.players.length;
+  const max = Number.isFinite(data.max) ? data.max : '?';
+  const names = data.players.length ? data.players.join(', ') : 'なし';
+  $('#playersText').textContent = `参加中プレイヤー (${count}/${max}): ${names}`;
 }
 
 function humanSize(bytes) {
@@ -289,5 +301,7 @@ api('/api/session').then(async ({ authenticated, passwordSource }) => {
 }).catch(() => showApp(false));
 
 setInterval(() => {
-  if (!$('#appView').hidden && latestStatus?.running) refreshLogs().catch(() => {});
+  if (!$('#appView').hidden && latestStatus?.running) {
+    Promise.all([refreshLogs(), refreshPlayers()]).catch(() => {});
+  }
 }, 5000);

@@ -169,6 +169,10 @@ function isRunning() {
   return minecraft !== null && minecraft.exitCode === null && minecraft.signalCode === null;
 }
 
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function getStatus() {
   const config = await loadConfig();
   return {
@@ -295,6 +299,63 @@ function sendCommand(command) {
   if (!line) throw Object.assign(new Error('command is required'), { status: 400 });
   minecraft.stdin.write(`${line}\n`);
   return { sent: line };
+}
+
+function parsePlayersFromLine(line) {
+  const patterns = [
+    /There are (\d+) of a max(?:imum)? of (\d+) players online:\s*(.*)$/,
+    /There are (\d+)\/(\d+) players online:\s*(.*)$/
+  ];
+  for (const pattern of patterns) {
+    const match = line.match(pattern);
+    if (!match) continue;
+    const online = Number(match[1]);
+    const max = Number(match[2]);
+    const players = String(match[3] || '').split(',').map((name) => name.trim()).filter(Boolean);
+    return { online, max, players };
+  }
+  return null;
+}
+
+async function readLogRange(logPath, start, end) {
+  if (end <= start) return '';
+  const size = end - start;
+  const handle = await fsp.open(logPath, 'r');
+  try {
+    const buffer = Buffer.alloc(size);
+    const { bytesRead } = await handle.read(buffer, 0, size, start);
+    return buffer.subarray(0, bytesRead).toString('utf8');
+  } finally {
+    await handle.close();
+  }
+}
+
+async function getOnlinePlayers() {
+  if (!isRunning()) return { online: 0, max: null, players: [] };
+  const status = await getStatus();
+  const logPath = status.logPath;
+  let cursor = 0;
+  if (fs.existsSync(logPath)) {
+    cursor = (await fsp.stat(logPath)).size;
+  }
+  sendCommand('list');
+  const deadline = Date.now() + 4000;
+  let pending = '';
+  while (Date.now() < deadline) {
+    await wait(200);
+    if (!fs.existsSync(logPath)) continue;
+    const stat = await fsp.stat(logPath);
+    if (stat.size <= cursor) continue;
+    pending += await readLogRange(logPath, cursor, stat.size);
+    cursor = stat.size;
+    const lines = pending.split(/\r?\n/);
+    pending = lines.pop() || '';
+    for (let index = lines.length - 1; index >= 0; index -= 1) {
+      const parsed = parsePlayersFromLine(lines[index]);
+      if (parsed) return parsed;
+    }
+  }
+  throw Object.assign(new Error('Failed to get online players'), { status: 504 });
 }
 
 async function readLogs(lines) {
@@ -513,6 +574,7 @@ async function handleApi(req, res, pathname) {
   if (!isAuthed(req)) return json(res, 401, { error: 'Login required' });
 
   if (req.method === 'GET' && pathname === '/api/status') return json(res, 200, await getStatus());
+  if (req.method === 'GET' && pathname === '/api/players') return json(res, 200, await getOnlinePlayers());
   if (req.method === 'GET' && pathname === '/api/logs') {
     const url = new URL(req.url, `http://${req.headers.host}`);
     return json(res, 200, { logs: await readLogs(Number(url.searchParams.get('lines') || 120)) });

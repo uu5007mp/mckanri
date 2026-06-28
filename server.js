@@ -477,7 +477,7 @@ async function getOnlinePlayers() {
     cursor = (await fsp.stat(logPath)).size;
   }
   sendCommand("list");
-  const deadline = Date.now() + 10000;
+  const deadline = Date.now() + 4000;
   let pending = "";
   while (Date.now() < deadline) {
     await wait(200);

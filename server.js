@@ -37,7 +37,7 @@ function loadDotEnv() {
 loadDotEnv();
 
 const PORT = Number(process.env.PORT || 3000);
-const HOST = process.env.HOST || "127.0.0.1";
+const HOST = process.env.HOST || "0.0.0.0";
 const MAX_JSON_BYTES = 1024 * 1024;
 const MAX_UPLOAD_BYTES = Number(
   process.env.MAX_UPLOAD_BYTES || 512 * 1024 * 1024,

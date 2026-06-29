@@ -207,6 +207,44 @@ button.is-loading::after {
 }
 .logs {
   max-height: 440px;
+  flex: 1 1 auto;
+}
+.console-card {
+  display: flex;
+  flex-direction: column;
+}
+.console-input {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #080d14;
+  border: 1px solid #26354d;
+  border-radius: 12px;
+  padding: 8px 12px;
+}
+.console-input input {
+  margin-top: 0;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  flex: 1;
+}
+.console-input input:focus {
+  outline: none;
+}
+.console-prompt {
+  color: var(--accent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 700;
+  user-select: none;
+}
+.console-input button {
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
 }
 .breadcrumbs {
   display: flex;

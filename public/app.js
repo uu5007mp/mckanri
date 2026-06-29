@@ -99,7 +99,9 @@ async function refreshStatus() {
 
 async function refreshLogs() {
   const { logs } = await api("/api/logs?lines=160");
-  $("#logs").textContent = logs || "ログはまだありません。";
+  const el = $("#logs");
+  el.textContent = logs || "ログはまだありません。";
+  el.scrollTop = el.scrollHeight;
 }
 
 async function refreshPlayers() {

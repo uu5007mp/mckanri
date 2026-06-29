@@ -373,7 +373,12 @@ function sendCommand(command) {
   return { sent: line };
 }
 
-function parsePlayersFromLine(line) {
+function stripAnsi(str) {
+  return String(str || "").replace(/\x1b\[[0-9;]*m|\[\d+m/g, "");
+}
+
+function parsePlayersFromLine(rawLine) {
+  const line = stripAnsi(rawLine);
   const patterns = [
     /There are (\d+) of a max(?:imum)? of (\d+) players online:\s*(.*)$/,
     /There are (\d+)\/(\d+) players online:\s*(.*)$/,
@@ -385,7 +390,7 @@ function parsePlayersFromLine(line) {
     const max = Number(match[2]);
     const players = String(match[3] || "")
       .split(",")
-      .map((name) => name.trim())
+      .map((name) => stripAnsi(name).trim())
       .filter(Boolean);
     return { online, max, players };
   }
@@ -503,11 +508,24 @@ async function getOnlinePlayers() {
   });
 }
 
+const LOG_FILTER_PATTERNS = [
+  /There are \d+ of a max(?:imum)? of \d+ players online:/,
+  /There are \d+\/\d+ players online:/,
+];
+
+function shouldFilterLogLine(line) {
+  return LOG_FILTER_PATTERNS.some((pattern) => pattern.test(line));
+}
+
 async function readLogs(lines) {
   const status = await getStatus();
   if (!fs.existsSync(status.logPath)) return "";
   const raw = await fsp.readFile(status.logPath, "utf8");
-  return raw.split(/\r?\n/).slice(-lines).join("\n");
+  return raw
+    .split(/\r?\n/)
+    .filter((line) => !shouldFilterLogLine(line))
+    .slice(-lines)
+    .join("\n");
 }
 
 function runTar(args, cwd) {

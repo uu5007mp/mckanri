@@ -349,6 +349,13 @@ button:disabled {
 }
 
 /* ── コンソールとログ (黒基調にして視認性を確保) ── */
+.logs {
+  height: 360px;
+  min-height: 200px;
+  max-height: 450px;
+  flex-grow: 0; /* flexで引き伸ばされないように固定 */
+}
+
 .logs,
 .message {
   background: #111111;
@@ -359,11 +366,10 @@ button:disabled {
   padding: 14px;
   line-height: 1.6;
   overflow-y: auto;
-  flex-grow: 1;
-  min-height: 300px;
   white-space: pre-wrap;
   word-break: break-all;
 }
+
 
 .message.small {
   min-height: 60px;

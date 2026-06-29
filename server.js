@@ -37,7 +37,7 @@ function loadDotEnv() {
 loadDotEnv();
 
 const PORT = Number(process.env.PORT || 3000);
-const HOST = process.env.HOST || "127.0.0.1";
+const HOST = process.env.HOST || "0.0.0.0";
 const MAX_JSON_BYTES = 1024 * 1024;
 const MAX_UPLOAD_BYTES = Number(
   process.env.MAX_UPLOAD_BYTES || 512 * 1024 * 1024,
@@ -550,7 +550,7 @@ async function getOnlinePlayers() {
   const config = await loadConfig();
   const port = Number(config.serverPort) || 25565;
   try {
-    const slp = await pingMinecraft("127.0.0.1", port);
+    const slp = await pingMinecraft("0.0.0.0", port);
     const online = slp.players?.online || 0;
     const max = slp.players?.max || 0;
     const sample = slp.players?.sample || [];
@@ -833,7 +833,7 @@ async function uploadFile(req, relativeDir = "", options = {}) {
 }
 
 function systemdUnit() {
-  return `[Unit]\nDescription=mckanri Minecraft web manager\nAfter=network.target\n\n[Service]\nType=simple\nWorkingDirectory=${ROOT}\nExecStart=/usr/bin/node ${path.join(ROOT, "server.js")}\nRestart=on-failure\nEnvironment=HOST=127.0.0.1\nEnvironment=PORT=${PORT}\n# Put MCKANRI_PASSWORD=change-me in the .env file below.\nEnvironmentFile=-${path.join(ROOT, ".env")}\n\n[Install]\nWantedBy=multi-user.target\n`;
+  return `[Unit]\nDescription=mckanri Minecraft web manager\nAfter=network.target\n\n[Service]\nType=simple\nWorkingDirectory=${ROOT}\nExecStart=/usr/bin/node ${path.join(ROOT, "server.js")}\nRestart=on-failure\nEnvironment=HOST=0.0.0.0\nEnvironment=PORT=${PORT}\n# Put MCKANRI_PASSWORD=change-me in the .env file below.\nEnvironmentFile=-${path.join(ROOT, ".env")}\n\n[Install]\nWantedBy=multi-user.target\n`;
 }
 
 async function serveStatic(req, res, pathname) {

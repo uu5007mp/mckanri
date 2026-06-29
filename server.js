@@ -37,7 +37,7 @@ function loadDotEnv() {
 loadDotEnv();
 
 const PORT = Number(process.env.PORT || 3000);
-const HOST = process.env.HOST || "0.0.0.0";
+const HOST = process.env.HOST || "127.0.0.1";
 const MAX_JSON_BYTES = 1024 * 1024;
 const MAX_UPLOAD_BYTES = Number(
   process.env.MAX_UPLOAD_BYTES || 512 * 1024 * 1024,
@@ -50,6 +50,7 @@ const DEFAULT_CONFIG = {
   minMemory: "1G",
   maxMemory: "2G",
   backupDir: path.join(ROOT, "backups"),
+  serverPort: "",
   extraArgs: [],
   adminPassword: process.env.MCKANRI_PASSWORD || "mckanri",
 };
@@ -230,6 +231,9 @@ function validateConfig(input) {
     }
     config[key] = config[key].trim();
   }
+  if (input.serverPort !== undefined) {
+    config.serverPort = String(input.serverPort).trim();
+  }
   if (typeof config.extraArgs === "string") {
     config.extraArgs = config.extraArgs.split(/\s+/).filter(Boolean);
   }
@@ -275,8 +279,11 @@ async function startServer() {
     "-jar",
     config.jarPath,
     "nogui",
-    ...config.extraArgs,
   ];
+  if (config.serverPort) {
+    args.push("--server-port", String(config.serverPort));
+  }
+  args.push(...config.extraArgs);
   minecraft = spawn(config.javaPath, args, {
     cwd: config.serverDir,
     stdio: ["pipe", "pipe", "pipe"],
@@ -338,7 +345,7 @@ async function stopServer() {
   const child = minecraft;
   try {
     child.stdin.write("stop\n");
-  } catch {}
+  } catch { }
   let stopped = await waitForExit(child, 30000);
   if (!stopped && isChildRunning(child)) {
     child.kill("SIGTERM");
@@ -451,7 +458,7 @@ async function fetchMojangProfile(name) {
       );
       if (textureJson?.textures?.SKIN?.url)
         result.skinUrl = textureJson.textures.SKIN.url;
-    } catch {}
+    } catch { }
   }
   playerProfileCache.set(cacheKey, {
     value: result,
@@ -473,39 +480,89 @@ async function readLogRange(logPath, start, end) {
   }
 }
 
+function writeVarInt(val) {
+  const bytes = [];
+  let uval = val >>> 0;
+  while (true) {
+    if ((uval & ~0x7F) === 0) {
+      bytes.push(uval);
+      return Buffer.from(bytes);
+    }
+    bytes.push((uval & 0x7F) | 0x80);
+    uval >>>= 7;
+  }
+}
+
+function pingMinecraft(host, port, timeoutMs = 3000) {
+  return new Promise((resolve, reject) => {
+    const net = require("net");
+    const socket = net.createConnection({ host, port, timeout: timeoutMs });
+
+    socket.on('timeout', () => {
+      socket.destroy();
+      reject(new Error("Timeout"));
+    });
+
+    socket.on('error', (err) => {
+      reject(err);
+    });
+
+    socket.once('connect', () => {
+      const hostBuf = Buffer.from(host, 'utf8');
+      const hostLen = writeVarInt(hostBuf.length);
+      const portBuf = Buffer.alloc(2);
+      portBuf.writeUInt16BE(port, 0);
+
+      const packetId = Buffer.from([0x00]);
+      const protocol = writeVarInt(47);
+      const state = writeVarInt(1);
+
+      const payload = Buffer.concat([packetId, protocol, hostLen, hostBuf, portBuf, state]);
+      const handshake = Buffer.concat([writeVarInt(payload.length), payload]);
+
+      const requestPayload = Buffer.from([0x00]);
+      const request = Buffer.concat([writeVarInt(requestPayload.length), requestPayload]);
+
+      socket.write(Buffer.concat([handshake, request]));
+    });
+
+    let data = Buffer.alloc(0);
+    socket.on('data', (chunk) => {
+      data = Buffer.concat([data, chunk]);
+      const str = data.toString('utf8');
+      const start = str.indexOf('{');
+      const end = str.lastIndexOf('}');
+      if (start !== -1 && end !== -1 && end > start) {
+        try {
+          const parsed = JSON.parse(str.substring(start, end + 1));
+          socket.destroy();
+          resolve(parsed);
+        } catch (e) {
+          // incomplete
+        }
+      }
+    });
+  });
+}
+
 async function getOnlinePlayers() {
   if (!isRunning()) return { online: 0, max: null, players: [] };
-  const status = await getStatus();
-  const logPath = status.logPath;
-  let cursor = 0;
-  if (fs.existsSync(logPath)) {
-    cursor = (await fsp.stat(logPath)).size;
+  const config = await loadConfig();
+  const port = Number(config.serverPort) || 25565;
+  try {
+    const slp = await pingMinecraft("127.0.0.1", port);
+    const online = slp.players?.online || 0;
+    const max = slp.players?.max || 0;
+    const sample = slp.players?.sample || [];
+    const players = await Promise.all(
+      sample.map((p) => fetchMojangProfile(p.name))
+    );
+    return { online, max, players };
+  } catch (error) {
+    throw Object.assign(new Error("Failed to ping server: " + error.message), {
+      status: 504,
+    });
   }
-  sendCommand("list");
-  const deadline = Date.now() + 4000;
-  let pending = "";
-  while (Date.now() < deadline) {
-    await wait(200);
-    if (!fs.existsSync(logPath)) continue;
-    const stat = await fsp.stat(logPath);
-    if (stat.size <= cursor) continue;
-    pending += await readLogRange(logPath, cursor, stat.size);
-    cursor = stat.size;
-    const lines = pending.split(/\r?\n/);
-    pending = lines.pop() || "";
-    for (let index = lines.length - 1; index >= 0; index -= 1) {
-      const parsed = parsePlayersFromLine(lines[index]);
-      if (parsed) {
-        const players = await Promise.all(
-          parsed.players.map((name) => fetchMojangProfile(name)),
-        );
-        return { ...parsed, players };
-      }
-    }
-  }
-  throw Object.assign(new Error("Failed to get online players"), {
-    status: 504,
-  });
 }
 
 const LOG_FILTER_PATTERNS = [
@@ -776,7 +833,7 @@ async function uploadFile(req, relativeDir = "", options = {}) {
 }
 
 function systemdUnit() {
-  return `[Unit]\nDescription=mckanri Minecraft web manager\nAfter=network.target\n\n[Service]\nType=simple\nWorkingDirectory=${ROOT}\nExecStart=/usr/bin/node ${path.join(ROOT, "server.js")}\nRestart=on-failure\nEnvironment=HOST=0.0.0.0\nEnvironment=PORT=${PORT}\n# Put MCKANRI_PASSWORD=change-me in the .env file below.\nEnvironmentFile=-${path.join(ROOT, ".env")}\n\n[Install]\nWantedBy=multi-user.target\n`;
+  return `[Unit]\nDescription=mckanri Minecraft web manager\nAfter=network.target\n\n[Service]\nType=simple\nWorkingDirectory=${ROOT}\nExecStart=/usr/bin/node ${path.join(ROOT, "server.js")}\nRestart=on-failure\nEnvironment=HOST=127.0.0.1\nEnvironment=PORT=${PORT}\n# Put MCKANRI_PASSWORD=change-me in the .env file below.\nEnvironmentFile=-${path.join(ROOT, ".env")}\n\n[Install]\nWantedBy=multi-user.target\n`;
 }
 
 async function serveStatic(req, res, pathname) {

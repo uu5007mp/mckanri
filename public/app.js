@@ -74,6 +74,7 @@ function collectConfig() {
     minMemory: form.elements.minMemory.value,
     maxMemory: form.elements.maxMemory.value,
     backupDir: form.elements.backupDir.value,
+    serverPort: form.elements.serverPort.value,
     extraArgs: form.elements.extraArgs.value,
   };
   if (form.elements.adminPassword.value.trim())

@@ -27,87 +27,67 @@
       </form>
     </section>
 
-    <div id="appView" hidden>
-      <header>
-        <div>
+    <div id="appView" class="app-layout" hidden>
+      <aside class="sidebar">
+        <div class="sidebar-brand">
           <h1>mckanri</h1>
-          <p>
-            Ubuntu / Node.js で動く簡易 Minecraft Java Edition 鯖管理Webツール
-          </p>
+          <p class="muted">Minecraft Server Web Manager</p>
         </div>
-        <button id="logoutBtn">ログアウト</button>
-      </header>
 
-      <main>
-        <section class="card status-card">
-          <div>
-            <h2>サーバー状態</h2>
+        <div class="sidebar-section">
+          <h2>サーバー状態</h2>
+          <div class="status-box">
             <p id="statusText">読み込み中...</p>
-            <p id="playersText" class="muted">
-              参加中プレイヤー: 読み込み中...
-            </p>
-            <div id="playersList" class="players-list"></div>
           </div>
-          <div class="actions">
-            <button id="refreshBtn">更新</button>
+          <div class="sidebar-actions">
             <button id="startBtn" class="primary">起動</button>
             <button id="restartBtn">再起動</button>
             <button id="stopBtn" class="danger">停止</button>
+            <button id="refreshBtn">状態更新</button>
           </div>
-        </section>
+        </div>
 
-        <section class="grid">
-          <form id="configForm" class="card">
-            <h2>設定</h2>
-            <label
-              >サーバーディレクトリ<input name="serverDir" required
-            /></label>
-            <label>server.jar パス<input name="jarPath" required /></label>
-            <label>Javaコマンド<input name="javaPath" required /></label>
-            <div class="two">
-              <label>最小メモリ<input name="minMemory" required /></label>
-              <label>最大メモリ<input name="maxMemory" required /></label>
-            </div>
-            <label>バックアップ先<input name="backupDir" required /></label>
-            <label
-              >追加引数<input name="extraArgs" placeholder="例: --bonusChest"
-            /></label>
-            <label
-              >管理パスワード変更<input
-                name="adminPassword"
-                type="password"
-                placeholder="変更するときだけ入力"
-            /></label>
-            <button type="submit">設定を保存</button>
-            <button type="button" id="initBtn">
-              初期化 / EULA同意済みで作成
-            </button>
+        <div class="sidebar-section players-section">
+          <h2 id="playersText">参加中プレイヤー: 読み込み中...</h2>
+          <div id="playersList" class="players-list"></div>
+        </div>
+
+        <div class="sidebar-footer">
+          <button id="logoutBtn" class="secondary">ログアウト</button>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <nav class="tab-nav">
+          <button class="tab-btn active" data-tab="console">コンソール</button>
+          <button class="tab-btn" data-tab="files">ファイル管理</button>
+          <button class="tab-btn" data-tab="settings">設定とアップロード</button>
+        </nav>
+
+        <!-- コンソールタブ -->
+        <div id="tab-console" class="tab-content active">
+          <div class="tab-header">
+            <h2>コンソール</h2>
+            <button id="reloadLogsBtn">ログ更新</button>
+          </div>
+          <pre id="logs" class="logs"></pre>
+          <form id="commandForm" class="command-row console-input">
+            <span class="console-prompt">&gt;</span>
+            <input
+              id="commandInput"
+              placeholder="say hello / whitelist add player など"
+            />
+            <button type="submit">送信</button>
           </form>
+        </div>
 
-          <section class="card">
-            <h3>server.jar アップロード</h3>
-            <p class="muted">
-              .jar ファイルは元のファイル名で保存され、設定の jarPath
-              も更新されます。
-            </p>
-            <form id="jarUploadForm" class="upload-row">
-              <input id="jarFileInput" type="file" accept=".jar" required />
-              <button type="submit">jarアップロード</button>
-            </form>
-            <div class="actions compact">
-              <button id="backupBtn">バックアップ</button>
-              <button id="systemdBtn">systemd表示</button>
-            </div>
-            <pre id="messageBox" class="message"></pre>
-          </section>
-        </section>
-
-        <section class="card file-manager-card">
-          <div class="log-header">
+        <!-- ファイル管理タブ -->
+        <div id="tab-files" class="tab-content">
+          <div class="tab-header">
             <div>
               <h2>ファイル管理</h2>
               <p class="muted">
-                Pterodactyl風に、一覧から編集・リネーム・削除・ダウンロードできます。
+                一覧から編集・リネーム・削除・ダウンロードできます。
               </p>
             </div>
             <div class="actions compact">
@@ -127,7 +107,7 @@
           </div>
           <div id="fileList" class="file-list table-like"></div>
           <section id="editorPanel" class="editor-panel" hidden>
-            <div class="log-header">
+            <div class="tab-header">
               <h3 id="editorTitle">ファイル編集</h3>
               <div class="actions compact">
                 <button id="saveFileBtn" class="primary">保存</button>
@@ -136,23 +116,44 @@
             </div>
             <textarea id="fileEditor" spellcheck="false"></textarea>
           </section>
-        </section>
+        </div>
 
-        <section class="card console-card">
-          <div class="log-header">
-            <h2>コンソール</h2>
-            <button id="reloadLogsBtn">ログ更新</button>
+        <!-- 設定とアップロードタブ -->
+        <div id="tab-settings" class="tab-content">
+          <div class="settings-grid">
+            <form id="configForm" class="card-inner">
+              <h2>基本設定</h2>
+              <label>サーバーディレクトリ<input name="serverDir" required /></label>
+              <label>server.jar パス<input name="jarPath" required /></label>
+              <label>Javaコマンド<input name="javaPath" required /></label>
+              <div class="two">
+                <label>最小メモリ<input name="minMemory" required /></label>
+                <label>最大メモリ<input name="maxMemory" required /></label>
+              </div>
+              <label>バックアップ先<input name="backupDir" required /></label>
+              <label>追加引数<input name="extraArgs" placeholder="例: --bonusChest" /></label>
+              <label>管理パスワード変更<input name="adminPassword" type="password" placeholder="変更するときだけ入力" /></label>
+              <button type="submit" class="primary">設定を保存</button>
+              <button type="button" id="initBtn">初期化 / EULA同意済みで作成</button>
+            </form>
+
+            <div class="card-inner">
+              <h2>サーバーファイルのアップロード</h2>
+              <p class="muted">
+                .jar ファイルは元のファイル名で保存され、設定の jarPath も更新されます。
+              </p>
+              <form id="jarUploadForm" class="upload-row">
+                <input id="jarFileInput" type="file" accept=".jar" required />
+                <button type="submit">jarアップロード</button>
+              </form>
+              <div class="actions compact">
+                <button id="backupBtn">バックアップ作成</button>
+                <button id="systemdBtn">systemd設定表示</button>
+              </div>
+              <pre id="messageBox" class="message"></pre>
+            </div>
           </div>
-          <pre id="logs" class="logs"></pre>
-          <form id="commandForm" class="command-row console-input">
-            <span class="console-prompt">&gt;</span>
-            <input
-              id="commandInput"
-              placeholder="say hello / whitelist add player など"
-            />
-            <button type="submit">送信</button>
-          </form>
-        </section>
+        </div>
       </main>
     </div>
 

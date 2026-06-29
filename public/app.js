@@ -480,3 +480,24 @@ setInterval(() => {
     Promise.all([refreshLogs(), refreshPlayers()]).catch(() => {});
   }
 }, 5000);
+
+// タブ切り替えロジック
+document.addEventListener("DOMContentLoaded", () => {
+  const tabs = document.querySelectorAll(".tab-btn");
+  const contents = document.querySelectorAll(".tab-content");
+
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      tabs.forEach((t) => t.classList.remove("active"));
+      contents.forEach((c) => c.classList.remove("active"));
+
+      tab.classList.add("active");
+      const targetId = `tab-${tab.dataset.tab}`;
+      const targetContent = document.getElementById(targetId);
+      if (targetContent) {
+        targetContent.classList.add("active");
+      }
+    });
+  });
+});
+

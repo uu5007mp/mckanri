@@ -26,6 +26,11 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+[hidden] {
+  display: none !important;
+}
+
+
 /* ── ログイン画面 ── */
 .login-view {
   min-height: 100vh;

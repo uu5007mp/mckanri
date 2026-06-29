@@ -636,6 +636,42 @@ async function backupServer() {
   return { archivePath };
 }
 
+async function listBackups() {
+  const config = await loadConfig();
+  await fsp.mkdir(config.backupDir, { recursive: true }).catch(() => {});
+  let entries = [];
+  try {
+    entries = await fsp.readdir(config.backupDir);
+  } catch (e) {
+    if (e.code !== "ENOENT") throw e;
+  }
+  const backups = [];
+  for (const name of entries) {
+    if (name.startsWith("minecraft-") && name.endsWith(".tar.gz")) {
+      try {
+        const stat = await fsp.stat(path.join(config.backupDir, name));
+        backups.push({
+          name,
+          size: stat.size,
+          modifiedAt: stat.mtime.toISOString(),
+        });
+      } catch (e) {}
+    }
+  }
+  backups.sort((a, b) => b.name.localeCompare(a.name));
+  return { backups };
+}
+
+async function deleteBackup(name) {
+  if (!name.startsWith("minecraft-") || !name.endsWith(".tar.gz") || name.includes("/") || name.includes("\\")) {
+    throw Object.assign(new Error("Invalid backup name"), { status: 400 });
+  }
+  const config = await loadConfig();
+  const target = path.join(config.backupDir, name);
+  await fsp.rm(target, { force: true });
+  return { deleted: name };
+}
+
 async function resolveServerPath(relativePath = "") {
   const config = await loadConfig();
   const root = path.resolve(config.serverDir);
@@ -960,6 +996,28 @@ async function handleApi(req, res, pathname) {
     return json(res, 200, sendCommand((await readJson(req)).command));
   if (req.method === "POST" && pathname === "/api/backup")
     return json(res, 200, await backupServer());
+  if (req.method === "GET" && pathname === "/api/backups")
+    return json(res, 200, await listBackups());
+  if (req.method === "GET" && pathname === "/api/backup-dl") {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const name = url.searchParams.get("file") || "";
+    if (!name.startsWith("minecraft-") || !name.endsWith(".tar.gz") || name.includes("/") || name.includes("\\")) {
+      throw Object.assign(new Error("Invalid backup name"), { status: 400 });
+    }
+    const config = await loadConfig();
+    const target = path.join(config.backupDir, name);
+    const stat = await fsp.stat(target).catch(() => null);
+    if (!stat || !stat.isFile()) throw Object.assign(new Error("File not found"), { status: 404 });
+    res.writeHead(200, {
+      "content-type": "application/gzip",
+      "content-disposition": `attachment; filename="${encodeURIComponent(name)}"`,
+    });
+    return fs.createReadStream(target).pipe(res);
+  }
+  if (req.method === "DELETE" && pathname === "/api/backup") {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    return json(res, 200, await deleteBackup(url.searchParams.get("file") || ""));
+  }
   if (req.method === "POST" && pathname === "/api/upload") {
     const url = new URL(req.url, `http://${req.headers.host}`);
     return json(

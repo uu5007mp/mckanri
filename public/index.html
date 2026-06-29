@@ -154,10 +154,23 @@
               <button type="submit">jarアップロード</button>
             </form>
             <div class="actions compact">
-              <button id="backupBtn">バックアップ作成</button>
               <button id="systemdBtn">systemd設定表示</button>
             </div>
             <pre id="messageBox" class="message"></pre>
+          </div>
+
+          <div class="card-inner">
+            <h2>バックアップ管理</h2>
+            <p class="muted">
+              バックアップを作成したり、過去のバックアップをダウンロード・削除できます。
+            </p>
+            <div class="actions compact" style="margin-bottom: 12px;">
+              <button id="backupBtn" class="primary">バックアップ作成</button>
+              <button id="refreshBackupsBtn">一覧更新</button>
+            </div>
+            <div id="backupList" class="file-list table-like">
+              <!-- Backups will be loaded here -->
+            </div>
           </div>
         </div>
       </div>

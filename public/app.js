@@ -95,6 +95,7 @@ async function refreshStatus() {
     refreshLogs(),
     refreshFiles(currentFilePath),
     refreshPlayers(),
+    refreshBackups(),
   ]);
 }
 
@@ -313,6 +314,64 @@ async function refreshFiles(targetPath = "") {
   }
 }
 
+async function refreshBackups() {
+  const data = await api("/api/backups").catch(() => ({ backups: [] }));
+  const list = $("#backupList");
+  if (!list) return;
+  list.innerHTML = "";
+  if (!data.backups || data.backups.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "file-row";
+    empty.style.justifyContent = "center";
+    empty.style.color = "var(--text-muted)";
+    empty.textContent = "バックアップはありません。";
+    list.append(empty);
+    return;
+  }
+  const header = document.createElement("div");
+  header.className = "file-row file-header";
+  header.innerHTML =
+    "<strong>名前</strong><strong>サイズ</strong><strong>作成日</strong><strong>操作</strong>";
+  list.append(header);
+
+  for (const backup of data.backups) {
+    const row = document.createElement("div");
+    row.className = "file-row";
+
+    const name = document.createElement("span");
+    name.textContent = backup.name;
+
+    const size = document.createElement("span");
+    size.textContent = humanSize(backup.size);
+
+    const date = document.createElement("span");
+    date.textContent = new Date(backup.modifiedAt).toLocaleString();
+
+    const actions = document.createElement("div");
+    actions.className = "row-actions";
+
+    const download = rowButton("DL");
+    download.addEventListener("click", () =>
+      window.open(`/api/backup-dl?file=${encodeURIComponent(backup.name)}`, "_blank"),
+    );
+
+    const del = rowButton("削除", "danger small-btn");
+    del.addEventListener("click", () => {
+      if (!confirm(`${backup.name} を削除しますか？`)) return;
+      run(async () => {
+        await api(`/api/backup?file=${encodeURIComponent(backup.name)}`, {
+          method: "DELETE",
+        });
+        await refreshBackups();
+      });
+    });
+
+    actions.append(download, del);
+    row.append(name, size, date, actions);
+    list.append(row);
+  }
+}
+
 async function run(action, options = {}) {
   const busyButton = options.busyButton || null;
   setButtonLoading(busyButton, true);
@@ -390,8 +449,12 @@ $("#restartBtn").addEventListener("click", () =>
 $("#refreshBtn").addEventListener("click", () => run(refreshStatus));
 $("#reloadLogsBtn").addEventListener("click", () => run(refreshLogs));
 $("#backupBtn").addEventListener("click", () =>
-  run(() => api("/api/backup", { method: "POST" })),
+  run(async () => {
+    await api("/api/backup", { method: "POST" });
+    await refreshBackups();
+  }),
 );
+$("#refreshBackupsBtn").addEventListener("click", () => run(refreshBackups));
 $("#systemdBtn").addEventListener("click", async () => {
   try {
     showMessage(await (await fetch("/api/systemd")).text());
